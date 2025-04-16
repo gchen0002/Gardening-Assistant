@@ -1,0 +1,45 @@
+{
+  "name": "gardening-assistant",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gchen0002/Gardening-Assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gchen0002/Gardening-Assistant/issues"
+  },
+  "homepage": "https://github.com/gchen0002/Gardening-Assistant#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "@types/react-datepicker": "^6.2.0",
+    "autoprefixer": "^10.4.21",
+    "next": "^15.3.0",
+    "postcss": "^8.5.3",
+    "react": "^19.1.0",
+    "react-datepicker": "^8.3.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.4",
+    "@types/node": "^22.14.1",
+    "@types/react": "^19.1.2",
+    "@types/tailwindcss": "^3.0.11",
+    "eslint": "^9.24.0",
+    "eslint-config-next": "^15.3.0",
+    "typescript": "^5.8.3"
+  }
+}
