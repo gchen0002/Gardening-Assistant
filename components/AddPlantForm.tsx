@@ -63,6 +63,7 @@ export default function AddPlantForm() {
       sunlight_needs: formData.sunlight_needs || null,
       date_planted: formData.date_planted ? formData.date_planted.toISOString() : null,
       last_watered_date: formData.last_watered_date ? formData.last_watered_date.toISOString() : null,
+      user_id: null // Explicitly set user_id to null to avoid default gen_random_uuid()
     };
 
     try {
