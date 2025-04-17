@@ -14,10 +14,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"; // Import Dialog components
 import { Accordion } from "@/components/ui/accordion"; // Import Accordion
-import { PlusCircle, HomeIcon, Settings, Sprout, UserCircle, MessageSquare, Heart, LogOut } from 'lucide-react'; // Import icons
+import { PlusCircle, HomeIcon, Settings, Sprout, UserCircle, MessageSquare, Heart, LogOut, Droplets } from 'lucide-react'; // Import icons
 import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // Import the toggle button
 import { logout } from './auth/actions'; // Import the logout action
 import { Plant } from '@/types/plant'; // Import the Plant type
+import WaterAllPlantsButton from "@/components/WaterAllPlantsButton"; // Import the water all plants button
 
 export default async function Home() {
   const cookieStore = cookies();
@@ -45,6 +46,12 @@ export default async function Home() {
   }
 
   const plantList = plants as Plant[] || [];
+  
+  // Calculate how many plants need watering
+  const now = new Date();
+  const plantsNeedingWater = plantList.filter(plant => 
+    plant.next_watering_date && new Date(plant.next_watering_date) <= now
+  );
 
   return (
     // Main container with flex layout and dark theme
@@ -98,26 +105,37 @@ export default async function Home() {
 
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold">My Plants</h2>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="secondary"> {/* Adjusted button variant for dark mode */}
-                       <PlusCircle className="mr-2 h-4 w-4" /> Add Plant
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <div className="text-center w-full bg-primary/20 text-primary py-1 rounded-sm text-xs font-medium mb-1">
-                        ADD PLANT
-                      </div>
-                      <DialogTitle className="text-primary flex items-center gap-1">
-                        <PlusCircle className="h-3.5 w-3.5"/>
-                        <span>New Garden Plant</span>
-                      </DialogTitle>
-                    </DialogHeader>
-                    <AddPlantForm />
-                  </DialogContent>
-                </Dialog>
+                <div>
+                  <h2 className="text-2xl font-semibold">My Plants</h2>
+                  {plantsNeedingWater.length > 0 && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400 mt-0.5">
+                      {plantsNeedingWater.length} plant{plantsNeedingWater.length !== 1 ? 's' : ''} need{plantsNeedingWater.length === 1 ? 's' : ''} watering
+                    </p>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  {/* Always show WaterAllPlantsButton, but it will render differently based on the plantsCount */}
+                  <WaterAllPlantsButton plantsCount={plantsNeedingWater.length} />
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="secondary"> {/* Adjusted button variant for dark mode */}
+                         <PlusCircle className="mr-2 h-4 w-4" /> Add Plant
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <div className="text-center w-full bg-primary/20 text-primary py-1 rounded-sm text-xs font-medium mb-1">
+                          ADD PLANT
+                        </div>
+                        <DialogTitle className="text-primary flex items-center gap-1">
+                          <PlusCircle className="h-3.5 w-3.5"/>
+                          <span>New Garden Plant</span>
+                        </DialogTitle>
+                      </DialogHeader>
+                      <AddPlantForm />
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
 
               {plantList.length > 0 ? (

@@ -31,6 +31,8 @@ export default function EditPlantForm({ plant, onClose }: EditPlantFormProps) {
     notes: '',
     sunlight_needs: '',
     last_watered_date: null,
+    watering_frequency_days: null,
+    next_watering_date: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +48,8 @@ export default function EditPlantForm({ plant, onClose }: EditPlantFormProps) {
       notes: plant.notes || '',
       sunlight_needs: plant.sunlight_needs || '',
       last_watered_date: plant.last_watered_date ? new Date(plant.last_watered_date) : null,
+      watering_frequency_days: plant.watering_frequency_days || null,
+      next_watering_date: plant.next_watering_date ? new Date(plant.next_watering_date) : null,
     });
   }, [plant]);
 
@@ -55,7 +59,38 @@ export default function EditPlantForm({ plant, onClose }: EditPlantFormProps) {
   };
 
   const handleDateChange = (date: Date | null, fieldName: keyof Plant) => {
-    setFormData((prev: Plant) => ({ ...prev, [fieldName]: date }));
+    setFormData((prev: Plant) => {
+      const newData = { ...prev, [fieldName]: date };
+      
+      // If last_watered_date and watering_frequency_days are both set,
+      // calculate the next_watering_date
+      if (fieldName === 'last_watered_date' && date && newData.watering_frequency_days) {
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + newData.watering_frequency_days);
+        newData.next_watering_date = nextDate;
+      }
+      
+      return newData;
+    });
+  };
+
+  const handleWateringFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value === '' ? null : parseInt(e.target.value, 10);
+    
+    setFormData((prev: Plant) => {
+      const newData = { ...prev, watering_frequency_days: value };
+      
+      // Update next_watering_date if last_watered_date is set
+      if (value && prev.last_watered_date) {
+        const nextDate = new Date(prev.last_watered_date);
+        nextDate.setDate(nextDate.getDate() + value);
+        newData.next_watering_date = nextDate;
+      } else {
+        newData.next_watering_date = null;
+      }
+      
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -81,6 +116,10 @@ export default function EditPlantForm({ plant, onClose }: EditPlantFormProps) {
       last_watered_date: formData.last_watered_date?.toString().includes('T') 
         ? formData.last_watered_date 
         : formData.last_watered_date instanceof Date ? formData.last_watered_date.toISOString() : null,
+      watering_frequency_days: formData.watering_frequency_days,
+      next_watering_date: formData.next_watering_date?.toString().includes('T')
+        ? formData.next_watering_date
+        : formData.next_watering_date instanceof Date ? formData.next_watering_date.toISOString() : null,
     };
 
     try {
@@ -163,9 +202,25 @@ export default function EditPlantForm({ plant, onClose }: EditPlantFormProps) {
           />
         </div>
       </div>
-      <div className="grid w-full items-center gap-1">
-        <Label htmlFor="sunlight_needs" className="text-xs font-medium">Sunlight</Label>
-        <Input id="sunlight_needs" name="sunlight_needs" value={formData.sunlight_needs || ''} onChange={handleChange} placeholder="e.g., Full Sun (6+ hours)" className="h-7 text-xs" />
+      <div className="grid grid-cols-2 gap-1">
+        <div className="grid w-full items-center gap-1">
+          <Label htmlFor="watering_frequency_days" className="text-xs font-medium">Water Every (days)</Label>
+          <Input 
+            id="watering_frequency_days" 
+            name="watering_frequency_days" 
+            value={formData.watering_frequency_days || ''} 
+            onChange={handleWateringFrequencyChange} 
+            type="number" 
+            min="1" 
+            max="365" 
+            placeholder="7" 
+            className="h-7 text-xs"
+          />
+        </div>
+        <div className="grid w-full items-center gap-1">
+          <Label htmlFor="sunlight_needs" className="text-xs font-medium">Sunlight</Label>
+          <Input id="sunlight_needs" name="sunlight_needs" value={formData.sunlight_needs || ''} onChange={handleChange} placeholder="e.g., Full Sun" className="h-7 text-xs" />
+        </div>
       </div>
       <div className="grid w-full items-center gap-1">
         <Label htmlFor="notes" className="text-xs font-medium">Notes</Label>
