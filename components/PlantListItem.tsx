@@ -3,18 +3,24 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-
-// Define the expected structure of the plant prop
-type Plant = {
-  id: number | string; // Assuming id is number or string based on your Supabase setup
-  name: string;
-  species?: string | null;
-  date_planted?: string | null;
-  notes?: string | null;
-  sunlight_needs?: string | null;
-  last_watered_date?: string | null;
-  // Add other fields from your plants table as needed
-};
+import { Button } from "@/components/ui/button";
+import {
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { CardDescription } from "@/components/ui/card";
+import { Leaf, CalendarDays, Droplets, Sun, BookText, Trash2, Pencil } from 'lucide-react';
+import EditPlantForm from './EditPlantForm';
+import { Plant } from '@/types/plant';
 
 interface PlantListItemProps {
   plant: Plant;
@@ -24,6 +30,7 @@ export default function PlantListItem({ plant }: PlantListItemProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleDelete = async () => {
     console.log('[handleDelete] Initiated for plant ID:', plant.id); // Log start
@@ -66,39 +73,83 @@ export default function PlantListItem({ plant }: PlantListItemProps) {
   };
 
   const handleEdit = () => {
-    // TODO: Implement edit functionality (e.g., show modal, navigate to edit page)
-    console.log('Edit plant:', plant.id);
-    alert('Edit functionality not implemented yet.');
+    setIsDialogOpen(true);
   };
 
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+  };
+
+  // Format dates nicely
+  const plantedDate = plant.date_planted ? new Date(plant.date_planted).toLocaleDateString() : 'N/A';
+  const lastWatered = plant.last_watered_date ? new Date(plant.last_watered_date).toLocaleString() : 'N/A';
+
   return (
-    <li className="p-4 border rounded bg-gray-50 dark:bg-gray-800 block">
-      <div className="flex justify-between items-start">
-        <div>
-          <h3 className="text-lg font-semibold">{plant.name}</h3>
-          {plant.species && <p className="text-sm text-gray-600 dark:text-gray-400">Species: {plant.species}</p>}
-          {plant.date_planted && <p className="text-sm text-gray-600 dark:text-gray-400">Planted: {new Date(plant.date_planted).toLocaleDateString()}</p>}
-          {plant.sunlight_needs && <p className="text-sm text-gray-600 dark:text-gray-400">Sunlight: {plant.sunlight_needs}</p>}
-          {plant.last_watered_date && <p className="text-sm text-gray-600 dark:text-gray-400">Last Watered: {new Date(plant.last_watered_date).toLocaleString()}</p>}
-          {plant.notes && <p className="text-sm mt-2">Notes: {plant.notes}</p>}
-          {error && <p className="text-red-500 text-xs mt-2">Error: {error}</p>}
-        </div>
-        <div className="flex flex-col space-y-2 ml-4">
-          <button
-            onClick={handleEdit}
-            className="px-3 py-1 text-sm font-medium text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200"
-          >
-            Edit
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="px-3 py-1 text-sm font-medium text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200 disabled:opacity-50"
-          >
-            {isDeleting ? 'Deleting...' : 'Delete'}
-          </button>
-        </div>
-      </div>
-    </li>
+    <>
+      <AccordionItem value={`item-${plant.id}`} className="border-b-0 rounded-lg overflow-hidden bg-card/50 dark:bg-card/80 shadow-sm hover:shadow-md transition-shadow duration-200">
+        <AccordionTrigger className="flex justify-between items-center w-full px-4 py-2 hover:no-underline hover:bg-muted/10">
+          <div className="flex-grow text-left mr-2">
+            <span className="text-lg font-medium">{plant.name}</span>
+            {plant.species && <CardDescription className="text-sm text-muted-foreground">Species: {plant.species}</CardDescription>}
+          </div>
+          <div className="flex space-x-1 flex-shrink-0">
+            <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleEdit();}} aria-label="Edit">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {e.stopPropagation(); handleDelete();}} 
+              disabled={isDeleting}
+              aria-label="Delete"
+              className="text-destructive hover:bg-destructive/10"
+            >
+              {isDeleting ? <span className="h-4 w-4 animate-spin border-2 border-current border-t-transparent rounded-full"/> : <Trash2 className="h-4 w-4" />}
+            </Button>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="text-sm px-4 pt-2 pb-4 bg-card/30 dark:bg-card/50">
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 items-center">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <span>Planted: {plantedDate}</span>
+
+            <Droplets className="h-4 w-4 text-muted-foreground" />
+            <span>Last Watered: {lastWatered}</span>
+
+            {plant.sunlight_needs && (
+              <>
+                <Sun className="h-4 w-4 text-muted-foreground" />
+                <span>Sunlight: {plant.sunlight_needs}</span>
+              </>
+            )}
+          </div>
+          {plant.notes && (
+            <div className="mt-3 pt-3 space-y-1">
+              <div className="flex items-center space-x-2">
+                <BookText className="h-4 w-4 text-muted-foreground" />
+                <p className="font-medium">Notes:</p>
+              </div>
+              <p className="text-muted-foreground pl-6">{plant.notes}</p>
+            </div>
+          )}
+          {error && <p className="text-destructive text-xs mt-2">Error: {error}</p>}
+        </AccordionContent>
+      </AccordionItem>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <div className="text-center w-full bg-secondary/30 text-secondary-foreground py-1 rounded-sm text-xs font-medium mb-1">
+              EDIT PLANT
+            </div>
+            <DialogTitle className="text-primary flex items-center gap-1">
+              <Pencil className="h-3.5 w-3.5"/>
+              <span className="truncate">{plant.name}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <EditPlantForm plant={plant} onClose={closeDialog} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 } 

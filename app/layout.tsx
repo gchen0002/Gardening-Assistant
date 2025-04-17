@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { logout } from './auth/actions'; // Import the logout action
+import { LogOut, LogIn } from 'lucide-react'; // Import icons
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { ThemeProvider } from "@/components/ThemeProvider"; // Import ThemeProvider
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,28 +26,29 @@ async function Header() {
   const { data: { user } } = await supabase.auth.getUser(); // Changed from getSession()
 
   return (
-    <header className="bg-gray-800 text-white p-4 flex justify-between items-center">
-      <Link href="/" className="text-xl font-bold">Gardening Assistant</Link>
-      <div>
-        {/* Check for user instead of session */}
-        {user ? (
-          <div className="flex items-center space-x-4">
-            {/* Use user.email */}
-            <span>{user.email}</span> 
-            <form action={logout}>
-              <button 
-                type="submit"
-                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-              >
-                Logout
-              </button>
-            </form>
-          </div>
-        ) : (
-          <Link href="/login" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-            Login
-          </Link>
-        )}
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 max-w-screen-2xl items-center mx-auto px-4">
+        <Link href="/" className="mr-6 flex items-center space-x-2">
+          <span className="font-bold">Gardening Assistant</span>
+        </Link>
+        <div className="flex flex-1 items-center justify-end space-x-4">
+          {user ? (
+            <div className="flex items-center space-x-4">
+              <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block">{user.email}</span>
+              <form action={logout}>
+                <Button variant="ghost" size="sm" type="submit">
+                  <LogOut className="mr-2 h-4 w-4" /> Logout
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <Button asChild size="sm">
+              <Link href="/login">
+                <LogIn className="mr-2 h-4 w-4" /> Login
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -56,13 +61,23 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} flex flex-col min-h-screen`}>
-        {/* No need for SupabaseProvider here for basic auth status */}
-        <Header />
-        <main className="flex-grow container mx-auto p-4">
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn(
+        "min-h-screen bg-background font-sans antialiased", // Removed flex flex-col here
+        inter.className
+      )}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {/* Header might need adjustment if it shouldn't be part of themed content */}
+          {/* Or if sidebar/main layout is handled differently now */}
+          {/* Header() */}
+          {/* Removed Header and flex-col from body - page.tsx now handles main layout */}
           {children}
-        </main>
+        </ThemeProvider>
       </body>
     </html>
   );
