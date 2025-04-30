@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CardDescription } from "@/components/ui/card";
-import { Leaf, CalendarDays, Droplets, Sun, BookText, Trash2, Pencil, AlertTriangle, Clock } from 'lucide-react';
+import { Leaf, CalendarDays, Droplets, Sun, BookText, Trash2, Pencil, AlertTriangle, Clock, Smile, Meh, Frown, Skull, HelpCircle } from 'lucide-react';
 import EditPlantForm from './EditPlantForm';
 import { Plant } from '@/types/plant';
 
@@ -134,6 +134,47 @@ export default function PlantListItem({ plant }: PlantListItemProps) {
     ? Math.floor((new Date().getTime() - nextWatering.getTime()) / (1000 * 3600 * 24)) 
     : 0;
 
+  // --- Calculate Watering Status ---
+  type WateringStatus = 'Healthy' | 'Okay' | 'Thirsty' | 'Overdue' | 'Unknown';
+  let status: WateringStatus = 'Unknown';
+  let statusIcon = <HelpCircle className="h-5 w-5 text-muted-foreground" />;
+  let statusTooltip = 'Watering schedule not set';
+
+  if (nextWatering && plant.watering_frequency_days) {
+    const now = new Date().getTime();
+    const nextWateringTime = nextWatering.getTime();
+    const intervalMillis = plant.watering_frequency_days * 24 * 60 * 60 * 1000;
+    const timeRemainingMillis = nextWateringTime - now;
+    const timeSinceLastWatered = plant.last_watered_date ? now - new Date(plant.last_watered_date).getTime() : intervalMillis; // Estimate if last_watered is missing but frequency exists
+
+    if (timeRemainingMillis < 0) {
+      status = 'Overdue';
+      statusIcon = <Skull className="h-5 w-5 text-red-500" />;
+      statusTooltip = `Needs watering! ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue.`;
+    } else {
+      const percentageRemaining = (timeRemainingMillis / intervalMillis) * 100;
+      if (percentageRemaining > 50) {
+        status = 'Healthy';
+        statusIcon = <Smile className="h-5 w-5 text-green-500" />;
+        statusTooltip = `Doing great! Next watering in ${Math.ceil(timeRemainingMillis / (1000 * 3600 * 24))} days.`;
+      } else if (percentageRemaining > 25) {
+        status = 'Okay';
+        statusIcon = <Meh className="h-5 w-5 text-yellow-500" />;
+        statusTooltip = `Getting thirsty. Next watering in ${Math.ceil(timeRemainingMillis / (1000 * 3600 * 24))} days.`;
+      } else {
+        status = 'Thirsty';
+        statusIcon = <Frown className="h-5 w-5 text-orange-500" />;
+        statusTooltip = `Needs water soon. Next watering in less than ${Math.ceil(intervalMillis * 0.25 / (1000 * 3600 * 24))} day${(intervalMillis * 0.25 / (1000 * 3600 * 24)) > 1 ? 's' : ''}.`;
+      }
+    }
+  } else if (plant.watering_frequency_days) {
+      // Frequency set, but next date isn't (likely just added or watered without calc)
+      status = 'Unknown'; // Or perhaps 'Healthy' as a default assumption? Let's stay Unknown.
+      statusIcon = <HelpCircle className="h-5 w-5 text-muted-foreground" />;
+      statusTooltip = 'Watering needed, but next date not calculated yet.';
+  }
+  // --- End Watering Status Calculation ---
+
   return (
     <>
       <div className="relative">
@@ -148,7 +189,10 @@ export default function PlantListItem({ plant }: PlantListItemProps) {
           <div className="flex items-center justify-between pr-4">
             <AccordionTrigger className="flex-1 px-4 py-2 hover:no-underline hover:bg-muted/10">
               <div className="flex-grow truncate pr-2">
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div title={statusTooltip}>
+                    {statusIcon}
+                  </div>
                   <span className="text-lg font-medium truncate">{plant.name}</span>
                   {needsWatering && (
                     <span className="flex items-center text-xs px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">
@@ -287,15 +331,12 @@ export default function PlantListItem({ plant }: PlantListItemProps) {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <div className="text-center w-full bg-secondary/30 text-secondary-foreground py-1 rounded-sm text-xs font-medium mb-1">
-              EDIT PLANT
-            </div>
-            <DialogTitle className="text-primary flex items-center gap-1">
-              <Pencil className="h-3.5 w-3.5"/>
-              <span className="truncate">{plant.name}</span>
-            </DialogTitle>
+        <DialogContent className="w-[350px]">
+          {/* Add visually hidden DialogTitle/Description for accessibility */}
+          <DialogHeader className="sr-only">
+             {/* Use template literal for dynamic title */}
+            <DialogTitle>Edit {plant.name || 'Plant'}</DialogTitle> 
+            <DialogDescription>Update the details for this plant.</DialogDescription>
           </DialogHeader>
           <EditPlantForm plant={plant} onClose={closeDialog} />
         </DialogContent>

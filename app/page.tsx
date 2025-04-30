@@ -122,15 +122,11 @@ export default async function Home() {
                          <PlusCircle className="mr-2 h-4 w-4" /> Add Plant
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <div className="text-center w-full bg-primary/20 text-primary py-1 rounded-sm text-xs font-medium mb-1">
-                          ADD PLANT
-                        </div>
-                        <DialogTitle className="text-primary flex items-center gap-1">
-                          <PlusCircle className="h-3.5 w-3.5"/>
-                          <span>New Garden Plant</span>
-                        </DialogTitle>
+                    <DialogContent className="w-[350px]">
+                      {/* Add visually hidden DialogTitle/Description for accessibility */}
+                      <DialogHeader className="sr-only">
+                        <DialogTitle>Add New Plant</DialogTitle>
+                        <DialogDescription>Fill in the details to add a plant to your garden.</DialogDescription>
                       </DialogHeader>
                       <AddPlantForm />
                     </DialogContent>

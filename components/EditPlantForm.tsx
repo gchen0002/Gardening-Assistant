@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import { format } from "date-fns";
 
 // Import Shadcn components & icons
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle, Save } from 'lucide-react';
+import { AlertCircle, CheckCircle, Save, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 import { Plant } from '@/types/plant';
 
@@ -55,23 +67,12 @@ export default function EditPlantForm({ plant, onClose }: EditPlantFormProps) {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev: Plant) => ({ ...prev, [name]: value }));
-  };
-
-  const handleDateChange = (date: Date | null, fieldName: keyof Plant) => {
-    setFormData((prev: Plant) => {
-      const newData = { ...prev, [fieldName]: date };
-      
-      // If last_watered_date and watering_frequency_days are both set,
-      // calculate the next_watering_date
-      if (fieldName === 'last_watered_date' && date && newData.watering_frequency_days) {
-        const nextDate = new Date(date);
-        nextDate.setDate(nextDate.getDate() + newData.watering_frequency_days);
-        newData.next_watering_date = nextDate;
-      }
-      
-      return newData;
-    });
+    if (name === 'watering_frequency_days') {
+      const numValue = value === '' ? null : parseInt(value, 10);
+      setFormData((prev: Plant) => ({ ...prev, [name]: numValue }));
+    } else {
+       setFormData((prev: Plant) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleWateringFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,96 +146,175 @@ export default function EditPlantForm({ plant, onClose }: EditPlantFormProps) {
     }
   };
 
-  const inputClassName = "flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50";
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 py-0 text-sm">
-      {error && (
-        <div className="flex items-center space-x-1 rounded-md border border-destructive/50 bg-destructive/10 p-1.5 text-xs text-destructive">
-          <AlertCircle className="h-3 w-3 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      {successMessage && (
-        <div className="flex items-center space-x-1 rounded-md border border-primary/50 bg-primary/10 p-1.5 text-xs text-primary">
-          <CheckCircle className="h-3 w-3 flex-shrink-0" />
-          <span>{successMessage}</span>
-        </div>
-      )}
-      
-      <div className="grid w-full items-center gap-1">
-        <Label htmlFor="name" className="text-xs font-medium">Name*</Label>
-        <Input id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="e.g., Cherry Tomato" className="h-7 text-xs" />
-      </div>
-      <div className="grid w-full items-center gap-1">
-        <Label htmlFor="species" className="text-xs font-medium">Species</Label>
-        <Input id="species" name="species" value={formData.species || ''} onChange={handleChange} placeholder="e.g., Solanum lycopersicum" className="h-7 text-xs" />
-      </div>
-      <div className="grid grid-cols-2 gap-1">
-        <div className="grid w-full items-center gap-1">
-          <Label htmlFor="date_planted" className="text-xs font-medium">Date Planted</Label>
-          <DatePicker
-            selected={formData.date_planted instanceof Date ? formData.date_planted : null}
-            onChange={(date) => handleDateChange(date, 'date_planted')}
-            showTimeSelect
-            dateFormat="MM/dd/yy"
-            timeFormat="HH:mm"
-            id="date_planted"
-            className={inputClassName}
-            wrapperClassName="w-full"
-            placeholderText="MM/DD/YY"
-            autoComplete="off"
-          />
-        </div>
-        <div className="grid w-full items-center gap-1">
-          <Label htmlFor="last_watered_date" className="text-xs font-medium">Last Watered</Label>
-          <DatePicker
-            selected={formData.last_watered_date instanceof Date ? formData.last_watered_date : null}
-            onChange={(date) => handleDateChange(date, 'last_watered_date')}
-            showTimeSelect
-            dateFormat="MM/dd/yy"
-            timeFormat="HH:mm"
-            id="last_watered_date"
-            className={inputClassName}
-            wrapperClassName="w-full"
-            placeholderText="MM/DD/YY"
-            autoComplete="off"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-1">
-        <div className="grid w-full items-center gap-1">
-          <Label htmlFor="watering_frequency_days" className="text-xs font-medium">Water Every (days)</Label>
-          <Input 
-            id="watering_frequency_days" 
-            name="watering_frequency_days" 
-            value={formData.watering_frequency_days || ''} 
-            onChange={handleWateringFrequencyChange} 
-            type="number" 
-            min="1" 
-            max="365" 
-            placeholder="7" 
-            className="h-7 text-xs"
-          />
-        </div>
-        <div className="grid w-full items-center gap-1">
-          <Label htmlFor="sunlight_needs" className="text-xs font-medium">Sunlight</Label>
-          <Input id="sunlight_needs" name="sunlight_needs" value={formData.sunlight_needs || ''} onChange={handleChange} placeholder="e.g., Full Sun" className="h-7 text-xs" />
-        </div>
-      </div>
-      <div className="grid w-full items-center gap-1">
-        <Label htmlFor="notes" className="text-xs font-medium">Notes</Label>
-        <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} placeholder="Any extra details..." rows={2} className="resize-none text-xs min-h-0 h-14 py-1" />
-      </div>
-      
-      <div className="flex justify-end space-x-1 pt-1">
-        <Button type="button" variant="outline" onClick={onClose} size="sm" className="h-6 text-xs px-2">
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isSubmitting} size="sm" className="h-6 text-xs px-2">
-          <Save className="mr-1 h-3 w-3" /> {isSubmitting ? 'Saving...' : 'Save'}
-        </Button>
-      </div>
-    </form>
+    <Card style={{ backgroundColor: '#111827' }}>
+       <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-lg font-semibold leading-none tracking-tight flex items-center gap-1.5">
+          <Save className="h-5 w-5"/> 
+          Edit {plant.name || 'Plant'}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 pt-0 pb-2">
+        <form onSubmit={handleSubmit} id="edit-plant-form" className="space-y-4 text-sm">
+          {error && (
+            <div className="flex items-center space-x-1 rounded-md border border-destructive/50 bg-destructive/10 p-1.5 text-xs text-destructive">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          {successMessage && (
+            <div className="flex items-center space-x-1 rounded-md border border-primary/50 bg-primary/10 p-1.5 text-xs text-primary">
+              <CheckCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+            <div className="flex flex-col space-y-1.5">
+               <Label htmlFor="name" className="text-xs font-medium">Name*</Label>
+              <Input 
+                id="name" 
+                name="name" 
+                value={formData.name} 
+                onChange={handleChange} 
+                required 
+                className="h-8 text-xs"
+              />
+            </div>
+            
+            <div className="flex flex-col space-y-1.5">
+               <Label htmlFor="species" className="text-xs font-medium">Species</Label>
+              <Input 
+                id="species" 
+                name="species" 
+                value={formData.species || ''} 
+                onChange={handleChange} 
+                className="h-8 text-xs"
+              />
+            </div>
+            
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="date_planted" className="text-xs font-medium">Date Planted</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-8 text-xs",
+                      !formData.date_planted && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {formData.date_planted ? format(formData.date_planted, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.date_planted instanceof Date ? formData.date_planted : undefined}
+                    onSelect={(date: Date | undefined) => {
+                       const selectedDate = date || null;
+                       setFormData((prev: Plant) => ({ ...prev, date_planted: selectedDate }));
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+              
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="last_watered_date" className="text-xs font-medium">Last Watered</Label>
+               <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-8 text-xs",
+                      !formData.last_watered_date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {formData.last_watered_date ? format(formData.last_watered_date, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.last_watered_date instanceof Date ? formData.last_watered_date : undefined}
+                    onSelect={(date: Date | undefined) => {
+                      const selectedDate = date || null;
+                       setFormData((prev: Plant) => {
+                         const newData = { ...prev, last_watered_date: selectedDate };
+                         // Recalculate next watering date
+                         if (selectedDate && prev.watering_frequency_days) {
+                           const nextDate = new Date(selectedDate);
+                           nextDate.setDate(nextDate.getDate() + prev.watering_frequency_days);
+                           newData.next_watering_date = nextDate;
+                         } else {
+                            newData.next_watering_date = null;
+                         }
+                         return newData;
+                       });
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="watering_frequency_days" className="text-xs font-medium">Water Every (days)</Label>
+              <Input 
+                id="watering_frequency_days" 
+                name="watering_frequency_days" 
+                value={formData.watering_frequency_days || ''} 
+                onChange={handleWateringFrequencyChange} 
+                type="number" 
+                min="1" 
+                max="365" 
+                placeholder="e.g., 7" 
+                className="h-8 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="sunlight_needs" className="text-xs font-medium">Sunlight</Label>
+              <Input 
+                id="sunlight_needs" 
+                name="sunlight_needs" 
+                value={formData.sunlight_needs || ''} 
+                onChange={handleChange} 
+                placeholder="e.g., Full Sun" 
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col space-y-1.5 pt-2">
+            <Label htmlFor="notes" className="text-xs font-medium">Notes</Label>
+            <Textarea 
+              id="notes" 
+              name="notes" 
+              value={formData.notes || ''} 
+              onChange={handleChange} 
+              placeholder="Any extra details..." 
+              rows={3} 
+              className="resize-none text-xs"
+            />
+          </div>
+        </form>
+      </CardContent>
+       <CardFooter className="p-4 pt-0">
+          <Button 
+            type="submit" 
+            form="edit-plant-form" 
+            disabled={isSubmitting} 
+            className="w-full h-8 text-xs" 
+            size="sm"
+          >
+            <Save className="mr-1.5 h-3.5 w-3.5" /> {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
+          </Button>
+      </CardFooter>
+    </Card>
   );
 } 

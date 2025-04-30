@@ -21,10 +21,10 @@ export default function WaterAllPlantsButton({ plantsCount }: WaterAllPlantsButt
   const checkDatabaseAccess = async () => {
     setDebugInfo("Checking database...");
     try {
-      // 1. Check if we can read the plants table
+      // 1. Check if we can read the plants table without using aggregate functions
       const { data: tableCheck, error: tableError } = await supabase
         .from('plants')
-        .select('count()')
+        .select('id')
         .limit(1);
       
       if (tableError) {
@@ -50,23 +50,23 @@ export default function WaterAllPlantsButton({ plantsCount }: WaterAllPlantsButt
       
       // 3. Show available columns
       const columns = Object.keys(sampleRow[0]).join(', ');
-      setDebugInfo(`Available columns: ${columns}`);
+      const hasRequiredColumns = columns.includes('next_watering_date') && 
+                               columns.includes('last_watered_date') && 
+                               columns.includes('watering_frequency_days');
       
-      // 4. Try a non-destructive update to test write permissions
-      const testId = sampleRow[0].id;
-      const currentValue = sampleRow[0].next_watering_date;
-      
-      const { error: updateTestError } = await supabase
-        .from('plants')
-        .update({ next_watering_date: currentValue })
-        .eq('id', testId);
+      if (hasRequiredColumns) {
+        setDebugInfo(`Available columns: ${columns}\n\nAll required columns are present! The database schema looks good.`);
+      } else {
+        // Check which columns are missing
+        const missingColumns = [];
+        if (!columns.includes('next_watering_date')) missingColumns.push('next_watering_date');
+        if (!columns.includes('last_watered_date')) missingColumns.push('last_watered_date');
+        if (!columns.includes('watering_frequency_days')) missingColumns.push('watering_frequency_days');
         
-      if (updateTestError) {
-        setDebugInfo(`${debugInfo}\nUpdate test failed: ${updateTestError.message}`);
-        return;
+        if (missingColumns.length > 0) {
+          setDebugInfo(`Available columns: ${columns}\n\nMissing columns: ${missingColumns.join(', ')}`);
+        }
       }
-      
-      setDebugInfo(`${debugInfo}\nDatabase access seems OK!`);
     } catch (e) {
       setDebugInfo(`Database check error: ${e}`);
     }
@@ -129,18 +129,30 @@ export default function WaterAllPlantsButton({ plantsCount }: WaterAllPlantsButt
     setError(null);
     
     try {
-      // First check if we can get any plants
-      console.log('Fetching plants from Supabase...');
-      
-      const fetchResult = await supabase
+      // First, check if the next_watering_date column exists
+      const { data: sampleRow } = await supabase
         .from('plants')
-        .select('id')
+        .select('*')
+        .limit(1);
+        
+      if (!sampleRow || sampleRow.length === 0) {
+        setError('No plants found in database');
+        return;
+      }
+      
+      const columns = Object.keys(sampleRow[0]);
+      if (!columns.includes('next_watering_date')) {
+        setError("The 'next_watering_date' column doesn't exist in your plants table.");
+        return;
+      }
+      
+      // Get all plants
+      console.log('Fetching plants from Supabase...');
+      const { data: plants, error: fetchError } = await supabase
+        .from('plants')
+        .select('*')  // Select all columns to get current values
         .limit(100);
       
-      // Access data and error separately to avoid type issues
-      const plants = fetchResult.data;
-      const fetchError = fetchResult.error;
-
       if (fetchError) {
         console.error('Error fetching plants:', fetchError);
         setError('Database error while fetching plants');
@@ -152,7 +164,7 @@ export default function WaterAllPlantsButton({ plantsCount }: WaterAllPlantsButt
         setError('No plants found to update');
         return;
       }
-
+      
       console.log(`Found ${plants.length} plants to update`);
       
       // Set next_watering_date to yesterday for all plants
@@ -161,80 +173,91 @@ export default function WaterAllPlantsButton({ plantsCount }: WaterAllPlantsButt
       const yesterdayISO = yesterday.toISOString();
       
       console.log(`Setting next_watering_date to ${yesterdayISO}`);
-
-      // Update each plant individually for better error handling
+      
+      // Update each plant individually
       let successCount = 0;
-      let updateErrors = [];
       
       for (const plant of plants) {
         try {
-          const updateResult = await supabase
+          // Prepare update data
+          const updateData: any = { 
+            next_watering_date: yesterdayISO
+          };
+          
+          // If watering_frequency_days is not set, set it to a default value of 7 days
+          if (!plant.watering_frequency_days) {
+            updateData.watering_frequency_days = 7;
+            console.log(`Setting watering_frequency_days to 7 for plant ${plant.id}`);
+          }
+          
+          const { error: updateError } = await supabase
             .from('plants')
-            .update({ next_watering_date: yesterdayISO })
+            .update(updateData)
             .eq('id', plant.id);
           
-          if (updateResult.error) {
-            // Log the complete error details
-            console.error(`Error updating plant ${plant.id}:`, JSON.stringify(updateResult.error, null, 2));
-            console.error(`Error code: ${updateResult.error.code}, Message: ${updateResult.error.message}`);
-            console.error(`Details: ${updateResult.error.details}`);
-            updateErrors.push(plant.id);
+          if (updateError) {
+            console.error(`Error updating plant ${plant.id}:`, updateError);
           } else {
             successCount++;
           }
-        } catch (updateErr) {
-          console.error(`Exception updating plant ${plant.id}:`, updateErr);
-          updateErrors.push(plant.id);
+        } catch (err) {
+          console.error(`Exception updating plant ${plant.id}:`, err);
         }
       }
-
-      // If individual updates failed, try a simpler approach as fallback
-      if (successCount === 0 && updateErrors.length > 0) {
-        console.log("All individual updates failed, trying a simpler batch approach...");
-        
-        try {
-          // First check database schema
-          const { data: schemaInfo, error: schemaError } = await supabase
-            .from('plants')
-            .select('id, next_watering_date')
-            .limit(1);
-            
-          console.log("Database schema check:", schemaInfo, schemaError);
-          
-          // Try a very simple update
-          const simplePlant = plants[0];
-          
-          // Try updating with a simple query and minimal data
-          const simpleUpdate = await supabase
-            .from('plants')
-            .update({ 
-              next_watering_date: yesterdayISO 
-            })
-            .eq('id', simplePlant.id)
-            .select();
-            
-          console.log("Simple update result:", simpleUpdate);
-          
-          if (!simpleUpdate.error) {
-            successCount = 1;
-            console.log("Simple update succeeded for one plant!");
-            router.refresh();
-          } else {
-            setError(`Database error: ${simpleUpdate.error.message}`);
-          }
-        } catch (e) {
-          console.error("Fallback update failed:", e);
-          setError("Database operation failed. Please check console for details.");
-        }
-      } else if (successCount > 0) {
-        // Only refresh if at least one plant was updated
+      
+      if (successCount === 0) {
+        setError('Failed to update any plants');
+      } else {
+        console.log(`Successfully updated ${successCount} plants`);
         router.refresh();
       }
     } catch (err) {
-      console.error('Exception in simulatePlantsNeedWatering:');
-      setError('Unknown error occurred');
+      console.error('Exception in simulatePlantsNeedWatering:', err);
+      setError('An error occurred');
     } finally {
       setIsSimulating(false);
+    }
+  };
+
+  // Alternative approach when the normal watering update fails
+  const addMissingColumns = async () => {
+    setDebugInfo("Database Schema Information\n");
+    
+    try {
+      // Get column info
+      const { data: sampleRow } = await supabase
+        .from('plants')
+        .select('*')
+        .limit(1);
+      
+      if (!sampleRow || sampleRow.length === 0) {
+        setDebugInfo("No plants found in database");
+        return;
+      }
+      
+      const columns = Object.keys(sampleRow[0]);
+      setDebugInfo(`Current columns in plants table:\n${columns.join('\n')}\n\n`);
+      
+      // Check which required columns exist
+      const hasNextWateringDate = columns.includes('next_watering_date');
+      const hasLastWateredDate = columns.includes('last_watered_date');
+      const hasWateringFrequency = columns.includes('watering_frequency_days');
+      
+      if (hasNextWateringDate && hasLastWateredDate && hasWateringFrequency) {
+        setDebugInfo(`${debugInfo}Your database already has all required columns!\n\nIf you're experiencing issues, it might be related to permissions or data types.`);
+      } else {
+        // Build a list of missing columns
+        const missingColumns = [];
+        if (!hasNextWateringDate) missingColumns.push('next_watering_date (type: timestamptz, nullable: true)');
+        if (!hasLastWateredDate) missingColumns.push('last_watered_date (type: timestamptz, nullable: true)');
+        if (!hasWateringFrequency) missingColumns.push('watering_frequency_days (type: integer, nullable: true)');
+        
+        if (missingColumns.length > 0) {
+          setDebugInfo(`${debugInfo}Missing columns that need to be added:\n${missingColumns.join('\n')}\n\nTo add these columns:\n1. Go to your Supabase dashboard\n2. Navigate to Table Editor\n3. Select the 'plants' table\n4. Click 'Add Column'\n5. Add each missing column with the specified type`);
+        }
+      }
+    } catch (e) {
+      setDebugInfo(`${debugInfo}Error checking schema: ${e}`);
     }
   };
 
@@ -288,6 +311,15 @@ export default function WaterAllPlantsButton({ plantsCount }: WaterAllPlantsButt
             className="text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800/50"
           >
             Debug DB
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addMissingColumns}
+            className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-800/50"
+          >
+            Show Fix
           </Button>
         </div>
         {error && <p className="text-destructive text-xs mt-1">{error}</p>}

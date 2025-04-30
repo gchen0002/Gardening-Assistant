@@ -40,7 +40,8 @@
     --background: 222.2 84% 4.9%; /* Dark Slate */
     --foreground: 210 40% 98%; /* White-ish */
  
-    --card: 222.2 84% 4.9%;
+    --card: #111827; /* Dark Gray (Tailwind gray-900) */
+    /* --card: 222.2 84% 4.9%; */ /* Original HSL */
     --card-foreground: 210 40% 98%;
  
     --popover: 222.2 84% 4.9%;
