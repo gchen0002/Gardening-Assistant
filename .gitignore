@@ -31,3 +31,12 @@ yarn-error.log*
 # Turborepo
 .turbo 
 node_modules
+
+# Project Overview
+# Gardening Assistant MVP:
+# This project aims to create a gardening assistant application. Key features include:
+# - Fetching plant data and care requirements from a free plant API.
+# - Tracking individual plants and their watering schedules.
+# - Storing user and plant data using Supabase.
+# - Fetching local weather conditions (specifically rainfall) using a free weather API based on user location.
+# - Adjusting plant watering schedules automatically based on recent rainfall.
