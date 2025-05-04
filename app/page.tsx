@@ -19,6 +19,8 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton"; // Import th
 import { logout } from './auth/actions'; // Import the logout action
 import { Plant } from '@/types/plant'; // Import the Plant type
 import WaterAllPlantsButton from "@/components/WaterAllPlantsButton"; // Import the water all plants button
+import Link from 'next/link';
+import Sidebar from "@/components/Sidebar"; // Import the Sidebar component
 
 export default async function Home() {
   const cookieStore = cookies();
@@ -54,41 +56,14 @@ export default async function Home() {
   );
 
   return (
-    // Main container with flex layout and dark theme
-    <div className="flex min-h-screen bg-background text-foreground relative">
+    <div className="flex min-h-screen bg-background text-foreground relative"> 
       
-      {/* Sidebar */}
-      <aside className="w-64 bg-card text-card-foreground p-4 border-r border-border flex flex-col">
-        <h2 className="text-xl font-semibold mb-6">Gardening Asst.</h2>
-        <nav className="flex-grow mb-4">
-          {/* Updated button styling to match reference */}
-          <div className="space-y-2">
-            <Button variant="ghost" className="w-full justify-start px-3 py-2 flex bg-gray-800/40 hover:bg-gray-700/60 text-white">
-              <HomeIcon className="mr-3 h-5 w-5" /> Home
-            </Button>
-          </div>
-        </nav>
-        <div className="mt-auto">
-          {/* Account indicator */}
-          <div className="mb-4 p-2 text-sm text-muted-foreground">
-            <span className="flex items-center">
-              <UserCircle className="mr-2 h-5 w-5" /> 
-              {user.email || 'Current Account'}
-            </span>
-          </div>
-          
-          {/* Logout Form */}
-          <form action={logout}>
-            <Button variant="ghost" size="sm" type="submit" className="w-full justify-start px-2 py-1.5 text-sm">
-              <LogOut className="mr-3 h-5 w-5" /> Logout
-            </Button>
-          </form>
-        </div>
-      </aside>
+      {/* Use the Sidebar component */}
+      <Sidebar user={user} /> 
 
       {/* Main Content Area */}
       <main className="flex-1 p-8 overflow-y-auto relative">
-        {/* Add theme toggle to top right of main content area */}
+        {/* Theme toggle remains here */}
         <div className="absolute top-2 right-4 z-10">
           <ThemeToggleButton />
         </div>
@@ -143,6 +118,7 @@ export default async function Home() {
               ) : (
                 !error && <p className="text-muted-foreground text-center py-4">No plants added yet. Click Add Plant!</p>
               )}
+
             </div>
           </div>
 
