@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation'; // Hook to get route parameters
+import React, { useState, useEffect, useTransition } from 'react';
+import { useParams, useRouter } from 'next/navigation'; // Added useRouter
 import { fetchPlantDetails } from '@/src/services/plantApi';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle as AlertIcon, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { addPlantToGarden } from '../actions'; // Import the server action
 
 // Interface for the detailed plant data (expand as needed based on API response)
 interface PlantDetails {
@@ -34,13 +35,54 @@ interface PlantDetails {
     indoor?: boolean;
 }
 
+// Helper function to estimate watering frequency in days
+const estimateWateringFrequency = (plant: PlantDetails): number | null => {
+    if (plant.watering_general_benchmark && typeof plant.watering_general_benchmark.value === 'string') {
+        const { value, unit } = plant.watering_general_benchmark;
+        let days: number | null = null;
+
+        // Try to parse a number from the value string (e.g., "5-7" -> 5, "7" -> 7)
+        const match = value.match(/\d+/);
+        if (match) {
+            days = parseInt(match[0], 10);
+        }
+
+        if (days !== null) {
+            if (unit && unit.toLowerCase().includes('week')) {
+                return days * 7;
+            } else if (unit && unit.toLowerCase().includes('month')) {
+                 return days * 30; // Approximate
+            }
+            return days; // Assume days if not week/month or unit is undefined
+        }
+    }
+
+    // Fallback to descriptive watering string
+    if (plant.watering) {
+        switch (plant.watering.toLowerCase()) {
+            case 'frequent': return 3; // e.g., every 3 days
+            case 'average': return 7;  // e.g., once a week
+            case 'minimum': return 14; // e.g., every 2 weeks
+            case 'none': return null; // Or a very high number if null is not desired, but null means user must set
+            default: return null;
+        }
+    }
+    return null; // Default if no info
+};
+
 export default function PlantDetailsPage() {
     const params = useParams();
+    const router = useRouter(); // For navigation
     const id = params?.id;
 
     const [plant, setPlant] = useState<PlantDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true); // Start loading initially
     const [error, setError] = useState<string | null>(null);
+
+    // For server action handling
+    const [isPending, startTransition] = useTransition();
+    const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [isAdded, setIsAdded] = useState(false); // To track if plant has been added
 
     useEffect(() => {
         if (id && typeof id === 'string') {
@@ -48,6 +90,8 @@ export default function PlantDetailsPage() {
             if (!isNaN(plantId)) {
                 setIsLoading(true);
                 setError(null);
+                setActionMessage(null); // Clear action message on new load
+                setIsAdded(false); // Reset added state
                 fetchPlantDetails(plantId)
                     .then(data => {
                         setPlant(data);
@@ -72,6 +116,31 @@ export default function PlantDetailsPage() {
         }
 
     }, [id]); // Re-run effect if id changes
+
+    const handleAddToGarden = async () => {
+        if (!plant) return;
+        setActionMessage(null);
+
+        const estimatedFrequency = estimateWateringFrequency(plant);
+
+        const plantDataForSupabase = {
+            name: plant.common_name,
+            species: plant.scientific_name.join(', '),
+            notes: plant.description || 'No description available.',
+            sunlight_needs: formatSunlight(plant.sunlight),
+            watering_frequency_days: estimatedFrequency,
+        };
+
+        startTransition(async () => {
+            const result = await addPlantToGarden(plantDataForSupabase);
+            if (result.success) {
+                setActionMessage({ type: 'success', text: result.message || 'Plant added successfully!' });
+                setIsAdded(true);
+            } else {
+                setActionMessage({ type: 'error', text: result.error || 'Failed to add plant.' });
+            }
+        });
+    };
 
     if (isLoading) {
         return (
@@ -185,8 +254,37 @@ export default function PlantDetailsPage() {
                          </div>
                      </div>
 
-                    {/* TODO: Add more sections for other details like pruning, soil, pests etc. */} 
-                     {/* TODO: Add "Add to My Garden" button */} 
+                    {/* Action Message Area */} 
+                    {actionMessage && (
+                        <Alert variant={actionMessage.type === 'error' ? 'destructive' : 'default'} className="mt-4">
+                            {actionMessage.type === 'error' ? <AlertIcon className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                            <AlertTitle>{actionMessage.type === 'error' ? 'Error' : 'Success'}</AlertTitle>
+                            <AlertDescription>{actionMessage.text}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    {/* "Add to My Garden" button */}
+                    {!isAdded && (
+                        <Button 
+                            onClick={handleAddToGarden} 
+                            disabled={isPending || isLoading}
+                            className="w-full mt-6"
+                            size="lg"
+                        >
+                            {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+                            {isPending ? 'Adding to Garden...' : 'Add to My Garden'}
+                        </Button>
+                    )}
+                    {isAdded && actionMessage?.type === 'success' && (
+                         <Button 
+                            onClick={() => router.push('/')} 
+                            className="w-full mt-6"
+                            variant="outline"
+                            size="lg"
+                        >
+                            View in My Garden
+                        </Button>
+                    )}
 
                 </CardContent>
             </Card>
